@@ -1,70 +1,26 @@
 # PRD Implementor
 
 An LLM dev team that implements PRDs end-to-end, built with Lamia `.hu` agents
-orchestrated by a `.lm` script. All agent outputs are structured via Pydantic
-models and validated by Lamia's `JSON[Model]` syntax.
-
-## Pipeline
-
-```
-prds/todo_api.md  →  orchestrator.lm  →  projects/todo_api/{src,tests}/ + logs/
-                          │
-                          ├── product_manager.hu → JSON[TaskBreakdown]
-                          ├── groomer.hu         → JSON[TaskBreakdown]  (refined)
-                          ├── developer.hu       → JSON[Implementation] (multi-file)
-                          │     ↑ py_compile errors loop back here
-                          ├── reviewer.hu        → JSON[Implementation] (with reviews)
-                          │     ↑ up to 3 review rounds, then human escalation
-                          ├── test_writer.hu     → JSON[Implementation] (test files)
-                          ├── qa_analyst.hu      → JSON[QAReport]
-                          └── deployer.hu        → str (changelog)
-```
+orchestrated by a `.lm` script. Any software is a living artifact, and it should be updated in the incremental manner. The pipeline is designed to implement any change in the PRD files in the incremental manner. Any time you make a change a the PRD file or add a new PRD file, the next line of the orchestrator.lm script will implement the change in the incremental manner.
 
 ## Usage
 
 ```bash
-lamia playground/prd_implementor/orchestrator.lm
+lamia orchestrator.lm
 ```
 
-Drop a `.md` file into `prds/`, re-run — only new or changed PRDs are processed.
-Delete a snapshot from `implemented/` to force re-processing.
+The example comes with a Todo List API PRD. This is just an example to help you check how the pipeline works. Please delete this PRD and drop your own PRD/s into the `prds/` directory to have your project implemented.
 
-## Key design decisions
+When a version of a PRD file is implemented it's copy is placed in the `implemented/` directory. This is used to detect changes in the PRD files and implement the changes in the incremental manner.
 
-**Structured output everywhere.** Every agent returns `-> JSON[Model]` (except
-deployer which returns free text). Lamia auto-injects the Pydantic schema into the
-LLM prompt — agents describe WHAT to do, Lamia handles HOW to format it.
+Hence you can delete a snapshot from `implemented/` to force re-processing of the PRD file.
 
-**Multi-file output.** The developer returns a `JSON[Implementation]` containing a
-list of `CodeFile` objects (path + content). The orchestrator writes each to disk
-under `projects/{prd_name}/`.
-
-**Syntax checking.** After the developer writes files, `py_compile.compile()` runs
-on each `.py` file. Compile errors are fed back to the developer before the reviewer
-even looks at the code.
-
-**Review cycle.** The reviewer annotates code with `FileReview` objects (line range,
-comments, is_addressed flag). If any reviews are unresolved, the code goes back to
-the developer. After 3 rounds without resolution, the pipeline stops and flags the
-PRD for human intervention.
+## Logging
 
 **Verbose logging.** When `VERBOSE_LOGGING = True` (default), every step writes its
 full JSON output to `logs/`. Set to `False` for just the final artifacts.
 
-## Pydantic models
-
-All shared types live in `models.py`:
-
-| Model | Used by | Purpose |
-|-------|---------|---------|
-| `Task` | PM, Groomer | Single implementation task with acceptance criteria |
-| `TaskBreakdown` | PM, Groomer | Ordered task list + risks |
-| `CodeFile` | Developer, Reviewer, Test Writer | Source file with path, content, and reviews |
-| `Implementation` | Developer, Reviewer, Test Writer | Collection of CodeFiles |
-| `FileReview` | Reviewer | Line-range review comment with is_addressed flag |
-| `ReviewComment` | Reviewer | Single comment in a review thread |
-| `QACriterion` | QA | PASS/FAIL/PARTIAL verdict for one acceptance criterion |
-| `QAReport` | QA | Overall verdict + list of issues |
+You can also run the Lamia CLI with the `--verbose` flag to see the Lamia's internal verbose logs.
 
 ## Directory structure
 
@@ -77,6 +33,17 @@ All shared types live in `models.py`:
 | `logs/` | Per-step JSON outputs (when verbose logging is on) |
 | `models.py` | Pydantic models shared by all agents |
 | `orchestrator.lm` | Pipeline script |
+
+## Human in the loop
+
+For some actions there is an escalation to the human. This is done by the orchestrator.lm script. The orchestrator.lm script will ask the human for a decision and then proceed with the next step.
+
+For example, you might get messages like this:
+
+  ⛔ Review not resolved after 3 rounds.
+     5 open comment(s) remain. Human intervention needed.
+
+You can then review the code and make the necessary changes. Then you can run the Lamia CLI with the `--continue` flag to continue the pipeline.
 
 ## Lamia syntax used
 

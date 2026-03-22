@@ -1,0 +1,12 @@
+# Lamia runtime — logs and session state generated during execution
+.lamia/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Environment files — keep .env.example, never commit actual secrets
+.env
