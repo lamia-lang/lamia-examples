@@ -1,0 +1,210 @@
+"""
+PRD Implementor — an LLM dev team that implements PRDs end-to-end.
+
+Usage:  lamia playground/prd_implementor/orchestrator.lm
+
+Pipeline:
+    1. Detect new / changed PRDs (compared to implemented/ snapshots)
+    2. For each: PM → Grooming → Dev → py_compile → Review (max 3 rounds) → Tests → QA → Deploy
+    3. Snapshot the processed PRD so future runs only pick up deltas
+"""
+
+import hashlib
+import json
+import py_compile
+import shutil
+from datetime import datetime
+from pathlib import Path
+import os
+
+
+VERBOSE_LOGGING = True
+MAX_REVIEW_ROUNDS = 3
+
+BASE = Path(os.getcwd())
+PRDS = BASE / "prds"
+IMPL = BASE / "implemented"
+PROJECTS = BASE / "projects"
+LOGS = BASE / "logs"
+
+for d in (IMPL, PROJECTS, LOGS):
+    d.mkdir(exist_ok=True)
+
+
+def log_step(prd_name: str, step: str, data: object) -> None:
+    if not VERBOSE_LOGGING:
+        return
+    log_file = LOGS / f"{prd_name}_{step}.json"
+    content = data.model_dump_json(indent=2) if hasattr(data, "model_dump_json") else json.dumps(data, indent=2, default=str)
+    log_file.write_text(content)
+    print(f"  📝 logged → {log_file.relative_to(BASE)}")
+
+
+def write_files(project_dir: Path, impl: Implementation) -> None:
+    for code_file in impl.files:
+        file_path = project_dir / code_file.path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(code_file.content)
+        print(f"  → {code_file.path}")
+
+
+def check_syntax(project_dir: Path, impl: Implementation) -> list[str]:
+    errors: list[str] = []
+    for code_file in impl.files:
+        if not code_file.path.endswith(".py"):
+            continue
+        full_path = project_dir / code_file.path
+        if not full_path.exists():
+            continue
+        try:
+            py_compile.compile(str(full_path), doraise=True)
+        except py_compile.PyCompileError as e:
+            errors.append(f"{code_file.path}: {e}")
+    return errors
+
+
+def read_project_files(project_dir: Path) -> str:
+    if not project_dir.exists():
+        return "(no existing code)"
+    parts: list[str] = []
+    for py_file in sorted(project_dir.rglob("*.py")):
+        rel = py_file.relative_to(project_dir)
+        parts.append(f"--- {rel} ---\n{py_file.read_text()}")
+    return "\n\n".join(parts) if parts else "(no existing code)"
+
+
+def impl_to_json(impl: Implementation) -> str:
+    return impl.model_dump_json(indent=2)
+
+
+def count_open_reviews(impl: Implementation) -> int:
+    return sum(
+        1
+        for f in impl.files
+        for r in f.reviews
+        if not r.is_addressed
+    )
+
+
+# ── Detect what needs work ──────────────────────────────────────────────
+
+pending: list[tuple[Path, str]] = []
+for prd in sorted(PRDS.glob("*.md")):
+    snapshot = IMPL / prd.name
+    if not snapshot.exists():
+        pending.append((prd, "new"))
+    elif hashlib.md5(prd.read_bytes()).hexdigest() != hashlib.md5(snapshot.read_bytes()).hexdigest():
+        pending.append((prd, "modified"))
+
+if not pending:
+    print("All PRDs are up to date. Nothing to do.")
+
+
+# ── Pipeline ────────────────────────────────────────────────────────────
+
+for prd_path, change_type in pending:
+    name = prd_path.stem
+    prd_text = prd_path.read_text()
+    prev = (IMPL / prd_path.name).read_text() if (IMPL / prd_path.name).exists() else "(new feature)"
+    project_dir = PROJECTS / name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print(f"  {name} ({change_type})")
+    print(f"{'='*60}")
+
+    # 1. Product Manager — break PRD into tasks
+    print("\n[1/7] Product Manager...")
+    tasks = product_manager(prd_content=prd_text, previous_version=prev) -> JSON[TaskBreakdown]
+    log_step(name, "1_tasks", tasks)
+
+    # 2. Grooming — refine tasks with dev perspective
+    print("\n[2/7] Grooming...")
+    raw_tasks_json = tasks.model_dump_json(indent=2)
+    specs = groomer(raw_tasks=raw_tasks_json, prd_content=prd_text) -> JSON[TaskBreakdown]
+    log_step(name, "2_groomed", specs)
+    specs_json = specs.model_dump_json(indent=2)
+
+    # 3. Developer — implement (with compile-fix loop)
+    print("\n[3/7] Developer...")
+    existing_code = read_project_files(project_dir)
+    impl = developer(specs=specs_json, prd_content=prd_text, existing_code=existing_code, compile_errors="(none)") -> JSON[Implementation]
+    write_files(project_dir, impl)
+    log_step(name, "3_implementation", impl)
+
+    compile_errors = check_syntax(project_dir, impl)
+    compile_attempt = 0
+    while compile_errors and compile_attempt < 2:
+        compile_attempt += 1
+        print(f"  ⚠ Syntax errors found (attempt {compile_attempt}):")
+        for err in compile_errors:
+            print(f"    - {err}")
+        errors_text = "\n".join(compile_errors)
+        impl = developer(specs=specs_json, prd_content=prd_text, existing_code=read_project_files(project_dir), compile_errors=errors_text) -> JSON[Implementation]
+        write_files(project_dir, impl)
+        compile_errors = check_syntax(project_dir, impl)
+
+    if compile_errors:
+        print("  ✗ Compile errors persist after retries — continuing to review anyway")
+
+    # 4. Review cycle — max 3 rounds, then human escalation
+    print("\n[4/7] Reviewer...")
+    open_reviews_count = 0
+    for review_round in range(1, MAX_REVIEW_ROUNDS + 1):
+        print(f"  Review round {review_round}/{MAX_REVIEW_ROUNDS}...")
+        reviewed = reviewer(impl_json=impl_to_json(impl), specs=specs_json) -> JSON[Implementation]
+        log_step(name, f"4_review_round_{review_round}", reviewed)
+
+        open_reviews_count = count_open_reviews(reviewed)
+        if open_reviews_count == 0:
+            print("  ✓ All clear — no open review comments")
+            impl = reviewed
+            break
+
+        print(f"  {open_reviews_count} open review comment(s) — sending back to developer...")
+        impl = developer(specs=specs_json, prd_content=prd_text, existing_code=read_project_files(project_dir), compile_errors=impl_to_json(reviewed)) -> JSON[Implementation]
+        write_files(project_dir, impl)
+        log_step(name, f"4_dev_fix_round_{review_round}", impl)
+
+        compile_errors = check_syntax(project_dir, impl)
+        if compile_errors:
+            print(f"  ⚠ Post-fix compile errors: {len(compile_errors)}")
+
+    if open_reviews_count > 0:
+        print(f"\n  ⛔ Review not resolved after {MAX_REVIEW_ROUNDS} rounds.")
+        print(f"     {open_reviews_count} open comment(s) remain. Human intervention needed.")
+        print(f"     Current state: {project_dir.relative_to(BASE)}/")
+        log_step(name, "4_escalation", {"open_reviews": open_reviews_count, "status": "human_escalation"})
+        shutil.copy2(prd_path, IMPL / prd_path.name)
+        continue
+
+    # 5. Test Writer — write tests
+    print("\n[5/7] Test Writer...")
+    test_impl = test_writer(impl_json=impl_to_json(impl), specs=specs_json) -> JSON[Implementation]
+    write_files(project_dir, test_impl)
+    log_step(name, "5_tests", test_impl)
+
+    # 6. QA — verify against PRD
+    print("\n[6/7] QA Analyst...")
+    source_summary = read_project_files(project_dir / "src") if (project_dir / "src").exists() else read_project_files(project_dir)
+    test_summary = read_project_files(project_dir / "tests") if (project_dir / "tests").exists() else "(no tests)"
+    qa_report = qa_analyst(source_files=source_summary, test_files=test_summary, specs=specs_json) -> JSON[QAReport]
+    log_step(name, "6_qa", qa_report)
+    print(f"  Verdict: {qa_report.verdict}")
+
+    # 7. Deploy — release changelog
+    print("\n[7/7] Deployer...")
+    qa_report_json = qa_report.model_dump_json(indent=2)
+    changelog = deployer(qa_report=qa_report_json, source_files=source_summary, prd_content=prd_text)
+    deploy_log = LOGS / f"{name}_7_deploy.md"
+    deploy_log.write_text(changelog if isinstance(changelog, str) else str(changelog))
+    print(f"  📝 logged → {deploy_log.relative_to(BASE)}")
+
+    # Snapshot PRD so next run skips it
+    shutil.copy2(prd_path, IMPL / prd_path.name)
+    print(f"\n  ✓ {name} complete — snapshot saved")
+
+if pending:
+    print(f"\n{'='*60}")
+    print(f"  Done. Check projects/ for code, logs/ for agent outputs.")
+    print(f"{'='*60}")

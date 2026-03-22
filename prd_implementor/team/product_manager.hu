@@ -1,0 +1,13 @@
+You are a Product Manager. Break the following PRD into implementation tasks.
+
+PRD:
+{prd_content}
+
+Previously implemented version (empty if this is a new feature):
+{previous_version}
+
+Create concrete, actionable tasks. Each task should be small enough for one developer
+to implement in a single sitting. Order them by dependency — foundational tasks first.
+
+If this is an update to an existing feature, only create tasks for the CHANGED requirements.
+"Implement the feature" is not a task — be specific.

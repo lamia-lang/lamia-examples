@@ -1,0 +1,50 @@
+"""Pydantic models shared by all agents in the PRD Implementor pipeline."""
+
+class Task(BaseModel):
+    id: str = Field(description="Task identifier, e.g. TASK-1")
+    title: str = Field(description="One-line summary of the task")
+    description: str = Field(description="What to build — concrete and actionable")
+    acceptance_criteria: list[str] = Field(description="Testable conditions that prove the task is done")
+    priority: str = Field(description="P0 (must have), P1 (should have), or P2 (nice to have)")
+    depends_on: list[str] = Field(default_factory=list, description="IDs of tasks that must be completed first")
+
+
+class TaskBreakdown(BaseModel):
+    tasks: list[Task] = Field(description="Ordered list of implementation tasks")
+    risks: list[str] = Field(default_factory=list, description="Things that might bite the developer during implementation")
+
+
+class ReviewComment(BaseModel):
+    text: str = Field(description="The review comment content")
+    actor: str = Field(description="Who wrote this comment: 'reviewer' or 'author'")
+
+
+class FileReview(BaseModel):
+    line_start: int = Field(description="First line of the code section under review")
+    line_end: int = Field(description="Last line of the code section under review")
+    comments: list[ReviewComment] = Field(description="Discussion thread for this code section")
+    is_addressed: bool = Field(default=False, description="True when the issue has been resolved")
+
+
+class CodeFile(BaseModel):
+    path: str = Field(description="Relative path within the project, e.g. src/models.py")
+    content: str = Field(description="Complete file source code")
+    language: str = Field(default="python", description="Programming language of the file")
+    reviews: list[FileReview] = Field(default_factory=list, description="Code review comments attached to this file")
+
+
+class Implementation(BaseModel):
+    files: list[CodeFile] = Field(description="All source files produced by the developer")
+    notes: str = Field(default="", description="Implementation decisions, open questions, or assumptions")
+
+
+class QACriterion(BaseModel):
+    criterion: str = Field(description="The acceptance criterion being verified")
+    status: str = Field(description="PASS, FAIL, or PARTIAL")
+    evidence: str = Field(description="Which code or test proves this criterion is met or not")
+
+
+class QAReport(BaseModel):
+    results: list[QACriterion] = Field(description="Verdict for each acceptance criterion")
+    verdict: str = Field(description="RELEASE, NEEDS_FIXES, or BLOCKED")
+    issues: list[str] = Field(default_factory=list, description="Specific issues that must be fixed before release")

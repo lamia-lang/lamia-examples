@@ -1,0 +1,62 @@
+# Lamia project configuration
+# Model chain: models are tried in order; if one fails, the next is used.
+# Use "provider:model" syntax or just "provider" to use its default_model.
+model_chain:
+  - name: "claude-max:claude-sonnet-4-5-20250929"
+    max_retries: 3
+  - name: "claude-max:claude-opus-4-5"
+    max_retries: 2
+# Provider configurations
+# Advanced parameters (temperature, max_tokens, etc.) use sensible defaults.
+# Uncomment and override only if needed.
+providers:
+  # OpenAI — models ordered by capability
+  openai:
+    enabled: false
+    default_model: gpt-4.1-nano
+    models:
+      - gpt-5-nano                   # fastest GPT-5 variant
+      - gpt-4.1-nano                 # fastest, most cost-efficient
+      - gpt-4o-mini                  # fast, affordable small model
+      - gpt-5-mini                   # cost-efficient GPT-5
+      - gpt-4.1-mini                 # smaller, faster GPT-4.1
+      - o4-mini                      # fast reasoning model
+      - o3-mini                      # small reasoning model
+      - gpt-5                        # intelligent reasoning model
+      - gpt-5.1                      # improved GPT-5
+      - gpt-5.2                      # best for coding and agentic tasks
+      - o3                           # reasoning model for complex tasks
+      - gpt-4.1                      # smartest non-reasoning model
+      - gpt-4o                       # fast, intelligent, flexible
+      - gpt-5.2-codex                # optimized for agentic coding
+      - gpt-5.1-codex                # optimized for agentic coding
+      - gpt-5.3-codex                # latest codex model
+      - o1                           # previous full reasoning model
+      - gpt-5.2-pro                  # smartest, most precise
+
+  # Anthropic — models ordered by capability
+  anthropic:
+    enabled: false
+    default_model: claude-haiku-4-5-20251001
+    models:
+      - claude-3-5-haiku-20241022    # previous fast model
+      - claude-haiku-4-5-20251001    # fastest, near-frontier
+      - claude-sonnet-4-5-20250929   # best speed/intelligence balance
+      - claude-opus-4-6              # most intelligent, best for agents
+      - claude-opus-4-5              # previous top-tier opus
+      - claude-opus-4-1              # legacy opus
+
+  # Ollama — local models, no API costs
+  ollama:
+    enabled: true
+    default_model: llama3.2:1b
+    models:
+      - llama3.2:1b                  # Small and fast (1B params)
+      - llama2                       # Good all-rounder
+      - mixtral                      # Mixture of experts, very capable — will be slow on most hardware
+      - codellama                    # Optimized for code
+      - gemma                        # Google's efficient model
+      - mistral                      # Mistral AI base model
+      - phi                          # Microsoft's small but capable model
+
+

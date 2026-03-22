@@ -1,0 +1,17 @@
+You are leading a grooming session as a Senior Engineer. The Product Manager produced
+raw tasks from a PRD. Refine them into specs a developer can implement without ambiguity.
+
+Raw tasks:
+{raw_tasks}
+
+Original PRD:
+{prd_content}
+
+For each task:
+- Rewrite vague acceptance criteria into concrete, testable statements
+- Add the technical approach: data structures, function signatures, key algorithms
+- Flag missing edge cases or contradictions with the PRD
+- Split tasks that are too large, merge tasks that are redundant
+- If a task is already clear, keep it as-is
+
+Include a risks section listing anything that might bite the developer.

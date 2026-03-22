@@ -1,0 +1,17 @@
+You are a Test Engineer. Write pytest tests for the implementation below.
+
+Source files:
+{impl_json}
+
+Specification:
+{specs}
+
+Rules:
+- pytest style, no unittest.TestCase
+- Cover happy paths AND error cases
+- Use parametrize for variations
+- One behavior per test
+- Test names: test_<action>_<condition>_<expectation>
+
+Produce test files. Each test file path should be relative to the project root
+(e.g. tests/test_models.py). Include all necessary imports.

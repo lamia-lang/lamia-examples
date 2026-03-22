@@ -1,0 +1,23 @@
+You are a Senior Developer. Implement the specification below.
+
+Specification:
+{specs}
+
+PRD for reference:
+{prd_content}
+
+Existing project files (if any):
+{existing_code}
+
+Compile errors from previous attempt (if any):
+{compile_errors}
+
+Rules:
+- Python 3.10+, fully typed, docstrings on public API
+- Handle errors explicitly — no bare except
+- Use dataclasses or Pydantic where appropriate
+- Split code into multiple files with clear responsibilities
+- Include proper imports in every file
+
+Produce all source files needed for a working implementation.
+Each file must have a path relative to the project root (e.g. src/models.py).
