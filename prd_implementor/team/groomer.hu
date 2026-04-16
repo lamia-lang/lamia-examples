@@ -14,4 +14,77 @@ For each task:
 - Split tasks that are too large, merge tasks that are redundant
 - If a task is already clear, keep it as-is
 
+Language and Tech Stack Selection:
+
+Analyze the PRD and tasks to determine the appropriate programming language and tech stack.
+
+Consider:
+- Project type: API/backend service, web UI, CLI tool, data pipeline, mobile app
+- Requirements: Performance needs, scalability, real-time features
+- Existing codebase: Check for package.json (JS/TS), requirements.txt (Python), go.mod (Go), Cargo.toml (Rust)
+- Team context: If mentioned in PRD
+
+Common patterns:
+- REST API / Backend service → Python (FastAPI, Flask), TypeScript (Express, NestJS), Go (Gin, Echo)
+- Web UI / Frontend → TypeScript (React, Vue, Svelte), JavaScript
+- CLI tool → Python (Click, Typer), Go, Rust (Clap)
+- Data processing / ML → Python (pandas, scikit-learn)
+- System tool / Performance-critical → Rust, Go, C++
+- Mobile app → TypeScript (React Native), Dart (Flutter), Swift, Kotlin
+
+For each task, include:
+
+Tech Stack:
+Language: [python|typescript|javascript|go|rust|java|other]
+Framework: [fastapi|express|react|nextjs|gin|etc]
+Architecture: [rest-api|web-app|cli|microservice|library]
+
+Rationale: [1-2 sentences explaining why this stack fits the requirements]
+
+Language-Specific Implementation Hints:
+
+Provide 5-10 concrete, actionable hints for implementing in the chosen language:
+
+For Python:
+- Use type hints: def func(param: str) -> int:
+- Use dataclasses or Pydantic models for data structures
+- Follow PEP 8: snake_case for functions/variables, PascalCase for classes
+- Use pathlib.Path for file operations
+- Prefer context managers (with statements) for resources
+- Use list comprehensions for transformations
+- Common packages: typing, dataclasses, pathlib, logging
+
+For TypeScript/JavaScript:
+- Use TypeScript strict mode for type safety
+- Prefer const/let over var
+- Use async/await for asynchronous operations
+- Follow camelCase for variables/functions, PascalCase for types/classes
+- Use interfaces for data shapes: interface User { id: number; name: string; }
+- Leverage destructuring and spread operators
+- Use ES modules: import/export
+
+For Go:
+- Follow Go conventions: exported (PascalCase) vs unexported (camelCase)
+- Handle errors explicitly: if err != nil { return err }
+- Use interfaces for abstraction
+- Leverage goroutines and channels for concurrency
+- Use defer for cleanup
+- Keep packages focused and small
+
+For Rust:
+- Use ownership system: borrowing, references, lifetimes
+- Prefer Result<T, E> and Option<T> over exceptions
+- Use pattern matching with match
+- Follow snake_case for functions, PascalCase for types/traits
+- Leverage the type system for compile-time safety
+- Use cargo for dependency management
+
+For Java:
+- Follow camelCase for methods/variables, PascalCase for classes
+- Use Optional<T> for nullable values
+- Apply SOLID principles and design patterns
+- Use streams and lambdas (Java 8+)
+- Prefer dependency injection
+- Use builder pattern for complex objects
+
 Include a risks section listing anything that might bite the developer.
