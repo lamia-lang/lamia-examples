@@ -1,6 +1,11 @@
 # Lamia runtime — logs and session state generated during execution
 .lamia/
 
+# Generated implementation code from orchestrator
+projects/
+logs/
+implemented/
+
 # Python bytecode
 __pycache__/
 *.pyc

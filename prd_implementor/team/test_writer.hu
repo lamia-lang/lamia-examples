@@ -7,7 +7,6 @@ Specification:
 {specs}
 
 Rules:
-- pytest style, no unittest.TestCase
 - Cover happy paths AND error cases
 - Use parametrize for variations
 - One behavior per test
