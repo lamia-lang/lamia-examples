@@ -1,0 +1,6 @@
+# Lamia runtime — logs and session state generated during execution
+**/.lamia/
+**/.lamia_cache/
+
+# Debugger configs
+**/.vscode/
