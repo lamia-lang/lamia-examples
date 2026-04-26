@@ -1,6 +1,10 @@
 # Lamia runtime — logs and session state generated during execution
 **/.lamia/
 **/.lamia_cache/
+**/.lamia_sessions
+
+# Python cache
+__pycache__
 
 # Debugger configs
 **/.vscode/
