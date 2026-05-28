@@ -1,0 +1,3 @@
+PUBLISH_START
+example-pin-1.png
+example-pin-2.png

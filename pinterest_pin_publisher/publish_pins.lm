@@ -1,0 +1,90 @@
+import os
+import random
+import time
+import json
+
+# --- Configuration ---
+QUEUE_FILE     = './publish_queue.txt'
+SCHEDULE_FILE  = './pin_metadata.json'
+PINS_DIR       = 'pins'
+BOARD          = "Your Board Name"
+PINS_THIS_RUN  = random.randint(5, 10)
+
+PINTEREST_EMAIL    = "your_email@example.com"
+PINTEREST_PASSWORD = "your_password"
+
+schedule_data = SCHEDULE_FILE -> JSON
+pins_index = {p['filename']: p for p in schedule_data['pins']}
+
+def read_queue():
+    content = QUEUE_FILE -> TEXT
+    lines = [l.strip() for l in content.split('\n') if l.strip()]
+    idx = lines.index('PUBLISH_START')
+    return lines, idx
+
+def advance_queue():
+    lines, idx = read_queue()
+    lines.pop(idx)
+    lines.insert(idx + 1, 'PUBLISH_START')
+    file.write(QUEUE_FILE, '\n'.join(lines) + '\n')
+
+def login():
+    with session("pinterest", "https://www.pinterest.com/"):
+        web.navigate("https://www.pinterest.com/login/")
+        web.type_text("input[name='id']", PINTEREST_EMAIL)
+        web.type_text("input[name='password']", PINTEREST_PASSWORD)
+        web.click("button[type='submit']")
+        time.sleep(5)
+
+login()
+
+published = 0
+
+for _ in range(PINS_THIS_RUN):
+    lines, idx = read_queue()
+    pending = lines[idx + 1:]
+
+    if not pending:
+        print("Queue empty — all pins published!")
+        break
+
+    filename = pending[0]
+    pin = pins_index.get(filename, {})
+    title = pin.get('title', filename.replace('.png', '').replace('-', ' ').title())
+    description = pin.get('description', '')
+    link = pin.get('link', '')
+    image_path = os.path.join(PINS_DIR, filename)
+
+    web.navigate("https://www.pinterest.com/pin-builder/")
+    time.sleep(random.uniform(6, 10))
+
+    abs_image_path = os.path.abspath(image_path)
+    web.upload_file("//*[starts-with(@id, 'media-upload-input-')]", abs_image_path)
+    time.sleep(random.uniform(4, 6))
+
+    web.type_text("//*[starts-with(@id, 'pin-draft-title-')]", title)
+    time.sleep(random.uniform(1, 3))
+
+    if description:
+        web.type_text("//*[starts-with(@id, 'pin-draft-description-')]", description)
+        time.sleep(random.uniform(1, 3))
+
+    if link:
+        web.type_text("//*[starts-with(@id, 'pin-draft-link-')]", link)
+        time.sleep(random.uniform(1, 3))
+
+    web.click("//div[@data-test-id='board-dropdown-select-button']")
+    time.sleep(random.uniform(2, 4))
+    web.click(f"//div[@data-test-id='board-row-{BOARD}']")
+    time.sleep(random.uniform(2, 4))
+
+    web.click("//div[@data-test-id='board-dropdown-save-button']")
+    time.sleep(random.uniform(5, 8))
+
+    advance_queue()
+    published += 1
+    print(f"[{published}/{PINS_THIS_RUN}] Published: {title}")
+
+    time.sleep(random.uniform(8, 18))
+
+print(f"Done — {published} pins published this session.")

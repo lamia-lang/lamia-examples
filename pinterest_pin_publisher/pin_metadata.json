@@ -1,0 +1,16 @@
+{
+  "pins": [
+    {
+      "filename": "example-pin-1.png",
+      "title": "Your Pin Title",
+      "description": "Description of your pin content",
+      "link": "https://your-website.com/page"
+    },
+    {
+      "filename": "example-pin-2.png",
+      "title": "Another Pin Title",
+      "description": "Another description",
+      "link": "https://your-website.com/other-page"
+    }
+  ]
+}
