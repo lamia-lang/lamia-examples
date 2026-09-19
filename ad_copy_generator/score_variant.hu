@@ -1,0 +1,16 @@
+Score this ad copy variant for quality before launch.
+
+Platform: {platform}
+Brand guidelines: {brand_guidelines}
+Variant text: {variant_text}
+
+Rate each dimension from 0 to 1:
+- clarity: Is the message immediately understandable?
+- brand_fit: Does it match the brand voice guidelines?
+- cta_strength: Is the CTA specific and action-oriented?
+- overall: Weighted average (clarity 0.3, brand_fit 0.3, cta_strength 0.4)
+
+verdict:
+- "launch" if overall >= 0.7
+- "revise" if overall >= 0.4
+- "reject" if overall < 0.4

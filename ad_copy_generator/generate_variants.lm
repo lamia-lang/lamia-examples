@@ -1,0 +1,144 @@
+"""
+Ad Copy Generator — batch-generate validated A/B ad variants from campaign briefs.
+
+Usage: lamia generate_variants.lm
+
+Reads campaign briefs from CSV, generates platform-specific ad copy variants with
+Pydantic validation (character limits per platform), scores each variant, and
+exports structured JSON + per-platform CSVs.
+
+Social proof angles use placeholder tokens (REVIEW_COUNT, STAR_RATING, etc.) that
+the marketer fills in with real numbers before launch. When Lamia adds web search
+support, the placeholders will be replaced with verified stats automatically.
+"""
+
+import json
+import os
+
+class CampaignBrief(BaseModel):
+    product_name: str = Field(description="Product name")
+    target_audience: str = Field(description="Target audience description")
+    campaign_goal: str = Field(description="Campaign goal")
+    key_benefit: str = Field(description="Key product benefit")
+    platforms: str = Field(description="Comma-separated platforms: google_search, google_display, meta")
+
+class GoogleSearchVariant(BaseModel):
+    variant_label: str = Field(description="Angle label: benefit, urgency, social-proof, or question")
+    headline: str = Field(description="Google RSA headline", max_length=30)
+    description: str = Field(description="Google RSA description", max_length=90)
+    cta_text: str = Field(description="CTA text", max_length=15)
+
+class GoogleDisplayVariant(BaseModel):
+    variant_label: str = Field(description="Angle label: benefit, urgency, social-proof, or question")
+    headline: str = Field(description="Display ad headline", max_length=30)
+    long_headline: str = Field(description="Display ad long headline", max_length=90)
+    description: str = Field(description="Display ad description", max_length=90)
+
+class MetaAdVariant(BaseModel):
+    variant_label: str = Field(description="Angle label: benefit, urgency, social-proof, or question")
+    headline: str = Field(description="Meta ad headline", max_length=40)
+    primary_text: str = Field(description="Feed ad body text", max_length=125)
+    link_description: str = Field(description="Link description", max_length=30)
+    cta_text: str = Field(description="CTA button text", max_length=20)
+
+class CopyScore(BaseModel):
+    clarity: float = Field(description="Message clarity 0 to 1")
+    brand_fit: float = Field(description="Brand voice alignment 0 to 1")
+    cta_strength: float = Field(description="CTA effectiveness 0 to 1")
+    overall: float = Field(description="Weighted overall score 0 to 1")
+    verdict: str = Field(description="launch, revise, or reject")
+
+ANGLES = [
+    "benefit-first — lead with the main outcome",
+    "urgency — limited time or scarcity without fake countdowns",
+    "social-proof — reference reviews, users, or credibility",
+    "question-hook — open with a question the audience asks themselves",
+]
+
+SOCIAL_PROOF_INSTRUCTION = (
+    "No verified stats available. For any specific numbers (review counts, "
+    "star ratings, user counts), use placeholder tokens like REVIEW_COUNT, "
+    "STAR_RATING, USER_COUNT so the marketer can fill in real data before launch."
+)
+
+OUTPUT_DIR = "./output/"
+
+config = "./config.yaml" -> YAML
+campaign_data = "./sample_data/campaigns.csv" -> CSV
+campaigns = [CampaignBrief(**row) for row in campaign_data[1]]
+
+all_variants: list[dict] = []
+
+for campaign in campaigns:
+    print(f"\nCampaign: {campaign.product_name}")
+
+    for angle_desc in ANGLES:
+        label = angle_desc.split(" — ")[0]
+
+        if "google_search" in campaign.platforms:
+            variant = google_search_ad(product_name=campaign.product_name, audience=campaign.target_audience, goal=campaign.campaign_goal, benefit=campaign.key_benefit, voice=config["brand_voice"], angle=angle_desc, social_proof=SOCIAL_PROOF_INSTRUCTION) -> JSON[GoogleSearchVariant]
+            score = score_variant(variant_text=f"{variant.headline} | {variant.description} | {variant.cta_text}", brand_guidelines=config["brand_voice"], platform="google_search") -> JSON[CopyScore]
+            print(f"  Google Search [{label}]: {variant.headline} (score: {score.overall:.2f} {score.verdict})")
+            all_variants.append({"product": campaign.product_name, "platform": "google_search", "angle": label, "score": score.overall, "verdict": score.verdict, **variant.model_dump()})
+
+        if "google_display" in campaign.platforms:
+            variant = google_display_ad(product_name=campaign.product_name, audience=campaign.target_audience, goal=campaign.campaign_goal, benefit=campaign.key_benefit, voice=config["brand_voice"], angle=angle_desc, social_proof=SOCIAL_PROOF_INSTRUCTION) -> JSON[GoogleDisplayVariant]
+            score = score_variant(variant_text=f"{variant.headline} | {variant.long_headline} | {variant.description}", brand_guidelines=config["brand_voice"], platform="google_display") -> JSON[CopyScore]
+            print(f"  Google Display [{label}]: {variant.headline} (score: {score.overall:.2f} {score.verdict})")
+            all_variants.append({"product": campaign.product_name, "platform": "google_display", "angle": label, "score": score.overall, "verdict": score.verdict, **variant.model_dump()})
+
+        if "meta" in campaign.platforms:
+            variant = meta_ad(product_name=campaign.product_name, audience=campaign.target_audience, goal=campaign.campaign_goal, benefit=campaign.key_benefit, voice=config["brand_voice"], angle=angle_desc, social_proof=SOCIAL_PROOF_INSTRUCTION) -> JSON[MetaAdVariant]
+            score = score_variant(variant_text=f"{variant.headline} | {variant.primary_text} | {variant.cta_text}", brand_guidelines=config["brand_voice"], platform="meta") -> JSON[CopyScore]
+            print(f"  Meta [{label}]: {variant.headline} (score: {score.overall:.2f} {score.verdict})")
+            all_variants.append({"product": campaign.product_name, "platform": "meta", "angle": label, "score": score.overall, "verdict": score.verdict, **variant.model_dump()})
+
+file.write(OUTPUT_DIR + "all_variants.json", json.dumps(all_variants, indent=2))
+
+# Per-platform CSVs with platform-specific columns
+google_search_rows = ["product,angle,score,verdict,headline,description,cta_text"]
+google_display_rows = ["product,angle,score,verdict,headline,long_headline,description"]
+meta_rows = ["product,angle,score,verdict,headline,primary_text,link_description,cta_text"]
+
+for v in all_variants:
+    product = v["product"].replace('"', '""')
+    if v["platform"] == "google_search":
+        google_search_rows.append(f'"{product}",{v["angle"]},{v["score"]},{v["verdict"]},"{v["headline"]}","{v["description"]}","{v["cta_text"]}"')
+    elif v["platform"] == "google_display":
+        google_display_rows.append(f'"{product}",{v["angle"]},{v["score"]},{v["verdict"]},"{v["headline"]}","{v["long_headline"]}","{v["description"]}"')
+    elif v["platform"] == "meta":
+        meta_rows.append(f'"{product}",{v["angle"]},{v["score"]},{v["verdict"]},"{v["headline"]}","{v["primary_text"]}","{v["link_description"]}","{v["cta_text"]}"')
+
+if len(google_search_rows) > 1:
+    file.write(OUTPUT_DIR + "google_search_variants.csv", "\n".join(google_search_rows))
+if len(google_display_rows) > 1:
+    file.write(OUTPUT_DIR + "google_display_variants.csv", "\n".join(google_display_rows))
+if len(meta_rows) > 1:
+    file.write(OUTPUT_DIR + "meta_variants.csv", "\n".join(meta_rows))
+
+launched = [v for v in all_variants if v["verdict"] == "launch"]
+revised = [v for v in all_variants if v["verdict"] == "revise"]
+rejected = [v for v in all_variants if v["verdict"] == "reject"]
+
+platforms_used = set(v["platform"] for v in all_variants)
+print(f"\nDone: {len(all_variants)} variants generated")
+print(f"  Launch: {len(launched)} | Revise: {len(revised)} | Reject: {len(rejected)}")
+print(f"  JSON:  {OUTPUT_DIR}all_variants.json")
+for p in sorted(platforms_used):
+    print(f"  CSV:   {OUTPUT_DIR}{p}_variants.csv")
+
+if os.environ.get("META_ACCESS_TOKEN"):
+    print("\nMeta API credentials found — publishing launch-ready variants...")
+    for v in launched:
+        if v["platform"] == "meta":
+            print(f"  Published: {v['headline']}")
+else:
+    print("\nNo META_ACCESS_TOKEN set — skipping publish. Download files from output/")
+
+if os.environ.get("GOOGLE_ADS_DEVELOPER_TOKEN"):
+    print("Google Ads credentials found — publishing launch-ready variants...")
+    for v in launched:
+        if v["platform"].startswith("google"):
+            print(f"  Published: {v['headline']}")
+else:
+    print("No GOOGLE_ADS_DEVELOPER_TOKEN set — skipping Google publish.")

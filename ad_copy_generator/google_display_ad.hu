@@ -1,0 +1,18 @@
+Generate one Google Display Ad copy variant.
+
+Product: {product_name}
+Audience: {audience}
+Campaign goal: {goal}
+Key benefit: {benefit}
+Brand voice: {voice}
+Variant angle: {angle}
+
+Social proof data:
+{social_proof}
+
+Google Display rules:
+- Headline: max 30 characters
+- Long headline: max 90 characters, expands on the short headline
+- Description: max 90 characters
+- Make this variant meaningfully different from other angles
+- For the social-proof angle: use ONLY the verified stats provided above. If the stats say "not found" or contain PLACEHOLDER markers, keep those markers verbatim in your output so the marketer can replace them with real numbers. Never invent review counts, star ratings, or user numbers.

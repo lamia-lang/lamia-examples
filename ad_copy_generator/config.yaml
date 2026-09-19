@@ -1,0 +1,5 @@
+model_chain:
+  - name: "openai:gpt-4o"
+    max_retries: 3
+
+brand_voice: "Direct, confident, no hype. Speak to the buyer's problem first. Avoid superlatives like 'best ever' or 'game-changer'."
