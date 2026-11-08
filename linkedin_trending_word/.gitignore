@@ -1,0 +1,4 @@
+output
+.lamia_sessions
+.lamia_cache
+__pycache__

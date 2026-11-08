@@ -1,0 +1,11 @@
+You are analyzing a batch of LinkedIn feed posts collected from random people who are not among your direct connections and who are not necessarily popular. These are posts that simply surfaced in the feed from strangers.
+
+Find the single most unusual, non-obvious word, and the underlying semantic idea, that recurs across these posts and looks like it is trending today. The trend is a word or idea that would not normally appear every day but shows up across several unrelated posts at once.
+
+Ignore common words, generic business and tech jargon, hashtags, the names of people, and company or product names. Focus on the surprising word or theme that the posts share even though the authors are unrelated.
+
+There are at least {min_posts} posts below, separated by dividers:
+
+{posts}
+
+Choose the one word that best represents the trend, state the broader idea behind it as a short phrase, explain briefly why you chose it based on how it appears across the posts, and report how many of the posts you considered.
