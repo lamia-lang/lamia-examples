@@ -1,0 +1,79 @@
+"""
+LinkedIn Trending Word — find the unusual word (or idea) trending in today's feed.
+
+Logs in once (the session is remembered across runs), scrolls the home feed, and
+collects posts from random people who are NOT your 1st-degree connections (and are
+not promoted/ads). It then asks the model to pick the single unusual word, and the
+broader semantic idea behind it, that recurs across those posts. The result is
+written to output/ for the day.
+
+Usage:          lamia find_trending_word.lm
+Schedule daily: lamia schedule add find_trending_word.lm --at 08:00
+"""
+
+import time
+from datetime import date
+
+LINKEDIN_EMAIL    = "your_email@example.com"
+LINKEDIN_PASSWORD = "your_password"
+
+LOGIN_URL        = "https://www.linkedin.com/login"
+FEED_URL         = "https://www.linkedin.com/feed/"
+SCROLL_ROUNDS    = 10
+MIN_RANDOM_POSTS = 3
+
+class TrendingResult(BaseModel):
+    word: str = Field(description="The single unusual word trending across the posts")
+    semantic_idea: str = Field(description="Short phrase for the broader idea behind the word")
+    reason: str = Field(description="Why this word and idea was chosen, grounded in the posts")
+    posts_analyzed: int = Field(description="How many random-people posts were considered")
+
+def login():
+    with session("linkedin", FEED_URL):
+        web.navigate(LOGIN_URL)
+        web.type_text("#username", LINKEDIN_EMAIL)
+        web.type_text("#password", LINKEDIN_PASSWORD)
+        web.click("button[type='submit']")
+        time.sleep(5)
+
+login()
+
+web.navigate(FEED_URL)
+time.sleep(5)
+
+for _ in range(SCROLL_ROUNDS):
+    web.scroll_to("div.scaffold-finite-scroll__content")
+    time.sleep(2)
+
+posts = web.get_elements("div.feed-shared-update-v2")
+
+random_posts = []
+for post in posts:
+    try:
+        actor = post.get_text(".update-components-actor__description")
+        body = post.get_text(".update-components-update-v2__commentary")
+    except Exception:
+        continue
+    if not actor or not body:
+        continue
+    if "1st" in actor.lower() or "promoted" in actor.lower():
+        continue
+    random_posts.append(body.strip())
+
+print(f"Collected {len(random_posts)} posts from random (non-connection) people")
+
+if len(random_posts) < MIN_RANDOM_POSTS:
+    print(f"Not enough random-people posts (need at least {MIN_RANDOM_POSTS}).")
+    print("Increase SCROLL_ROUNDS or run again later when the feed has more posts.")
+else:
+    feed_text = "\n\n-----\n\n".join(random_posts)
+    result = extract_trending_word(posts=feed_text, min_posts=MIN_RANDOM_POSTS) -> JSON[TrendingResult]
+
+    today = date.today().isoformat()
+    file.append("./output/trending_words.tsv", f"{today}\t{result.word}\t{result.semantic_idea}\n")
+    file.write("./output/today.txt", result.word)
+
+    print(f"Trending word for {today}: {result.word}")
+    print(f"  idea:   {result.semantic_idea}")
+    print(f"  reason: {result.reason}")
+    print(f"  posts:  {result.posts_analyzed}")
